@@ -1,0 +1,190 @@
+
+NAME-PAWAN KUMAR
+CWID -10474820
+
+
+REPORT 1
+---------
+with T1 as
+(select cust as CUSTOMER,min(quant) as MIN_Q, max(quant)as MAX_Q, avg(quant)as AVG_Q 
+from sales 
+group by cust),
+T2 as
+(select T1.CUSTOMER, T1.MIN_Q, var.prod as MIN_PROD, var.date as MIN_DATE, var.state as ST
+from T1, sales as var 
+where T1.CUSTOMER=var.cust and T1.MIN_Q=var.quant),
+T3 as
+(select T1.CUSTOMER, T1.MAX_Q, var.prod as MAX_PROD, var.date as MAX_DATE, var.state as ST from T1, sales as var
+where T1.CUSTOMER=var.cust and T1.MAX_Q=var.quant)
+select T2.CUSTOMER, T2.MIN_Q,T2.MIN_PROD,T2.MIN_DATE, T2.ST,
+T3.MAX_Q,T3.MAX_PROD,T3.MAX_DATE, T3.ST,T1.AVG_Q from T1, T2, T3 
+where T1.CUSTOMER=T3.CUSTOMER and T2.CUSTOMER=T3.CUSTOMER 
+and T1.CUSTOMER=T2.CUSTOMER
+
+
+REPORT 2
+---------
+with T1 as
+(
+	select cust as customer, prod as product, 
+	max(quant)as oct_max
+	from sales 
+	where year>2017 and month=10          
+	group by customer, product
+),
+T2 as(
+	select T1.customer,T1.product, T1.oct_max, var.date as "oct_date" 
+	from T1, sales var
+	where T1.customer = var.cust and 
+	T1.product=var.prod 
+	and var.year>2017 and var.month=10 and T1.oct_max=var.quant  
+
+),
+T3 as(
+	select cust as customer, prod as product, min(quant)as nov_min
+	from sales 
+	where month=11
+	group by customer, product
+),
+T4 as
+(
+	select T3.customer, T3.product, T3.nov_min, var.date as "nov_date" 
+	from T3, sales var
+	where T3.customer= var.cust and T3.nov_min=var.quant and T3.product=var.prod and var.month=11
+),
+T5 as (
+	select cust as customer, prod as product, min(quant)as dec_min
+	from sales 
+	where month=12
+	group by customer, product
+),
+T6 as(
+	select T5.customer, T5.product, T5.dec_min, var.date as "dec_date" 
+	from sales var, T5 
+	where T5.customer=var.cust and T5.product=var.prod and T5.dec_min=var.quant and var.month=12
+)
+select * 
+from T2 natural full outer join T4 natural full join T6
+order by customer,product
+
+
+REPORT 3
+------------
+with
+T1 as
+(select prod as product, sum(quant) as sum_quant,month
+from sales
+group by product,month),
+
+T2 as
+(select max(sum_quant) as MOST_POP_TOTAL_Q,min(sum_quant) as LEAST_POP_TOTAL_Q,month
+ from T1
+ group by month), 
+ 
+T3 as
+(select T2.month,T2.MOST_POP_TOTAL_Q,T2.LEAST_POP_TOTAL_Q,T1.product as MOST_POPULAR_PROD
+from T1,T2
+where T2.month=T1.month and T1.sum_quant = T2.MOST_POP_TOTAL_Q)
+ 
+select T3.month,T3.MOST_POPULAR_PROD,T3.MOST_POP_TOTAL_Q,T1.product as LEAST_POPULAR_PROD,T3.LEAST_POP_TOTAL_Q
+from T3,T1
+where T3.month = T1.month and T3.LEAST_POP_TOTAL_Q = T1.sum_quant
+order by T3.month
+ 
+ 
+
+
+REPORT 4
+---------------------
+
+with T1 as
+(select prod as product, sum(quant) as sumq, month
+from sales
+group by product,month
+order by month,product),
+ 
+T2 as
+(select max(sumq) as maxq, min(sumq) as minq, product as product
+from T1
+group by product),
+
+T3 as(
+select T1.product,T2.maxq,T1.month as MOST_FAV_MO,T2.minq
+from T1,T2
+WHERE T1.product=T2.product and T1.sumq=T2.maxq )
+	
+select T3.product,T3.maxq,T3.MOST_FAV_MO,T3.minq,T1.month as LEAST_FAV_MO
+from T1,T2,T3
+where T1.product=T2.product and T1.sumq=T3.minq 
+
+
+
+
+REPORT 5
+---------
+select ct.prod,ct.cust,
+ct.quant/ct.count as ct_avg,
+ny.quant/ny.count as ny_avg,
+nj.quant/nj.count as nj_avg,
+pa.quant/pa.count as pa_avg,
+(ct.quant + ny.quant + nj.quant + pa.quant)/
+(ct.count + ny.count + nj.count + pa.count) as avg,
+ct.quant + ny.quant + nj.quant + pa.quant as total,
+ct.count + ny.count + nj.count + pa.count as count
+ from
+(
+select 
+prod,
+cust,
+state,
+sum(quant) as quant,
+count(1) as count
+from sales 
+where state = 'CT'
+group by prod,
+cust,
+state
+) ct inner join 
+(
+select 
+prod,
+cust,
+state,
+sum(quant) as quant,
+count(1) as count
+from sales 
+where state = 'NY'
+group by prod,
+cust,
+state
+) NY on (CT.prod = NY.prod and CT.cust = NY.cust)
+inner join 
+(
+select 
+prod,
+cust,
+state,
+sum(quant) as quant,
+count(1) as count
+from sales 
+where state = 'NJ'
+group by prod,
+cust,
+state
+) NJ on (NJ.prod = NY.prod and NJ.cust = NY.cust)
+inner join 
+(
+select 
+prod,
+cust,
+state,
+sum(quant) as quant,
+count(1) as count
+from sales 
+where state = 'PA'
+group by prod,
+cust,
+state
+) PA  on (PA.prod = NJ.prod and PA.cust = NJ.cust)
+order by 1,2
+
